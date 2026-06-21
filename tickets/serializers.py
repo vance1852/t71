@@ -101,14 +101,15 @@ class OrderSeatReadSerializer(serializers.ModelSerializer):
 class TicketOrderSerializer(serializers.ModelSerializer):
     show_title = serializers.CharField(source="performance.show.title", read_only=True)
     seats = OrderSeatReadSerializer(source="order_seats", many=True, read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
 
     class Meta:
         model = TicketOrder
         fields = [
-            "id", "performance", "show_title", "customer_name", "phone",
+            "id", "performance", "show_title", "user_id", "customer_name", "phone",
             "amount", "status", "locked_until", "seats", "created_at",
         ]
-        read_only_fields = ["id", "amount", "status", "locked_until", "created_at"]
+        read_only_fields = ["id", "user_id", "amount", "status", "locked_until", "created_at"]
 
 
 class LoginSerializer(serializers.Serializer):

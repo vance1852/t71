@@ -1,4 +1,8 @@
 from django.db import models
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
 
 
 class Hall(models.Model):
@@ -100,6 +104,7 @@ class TicketOrder(models.Model):
     ]
 
     performance = models.ForeignKey(Performance, on_delete=models.CASCADE, related_name="orders")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="orders", null=True, blank=True)
     customer_name = models.CharField(max_length=64)
     phone = models.CharField(max_length=32, blank=True, default="")
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)

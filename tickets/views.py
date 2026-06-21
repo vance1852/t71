@@ -243,6 +243,7 @@ def performance_lock_seats(request, pk):
 
         order = TicketOrder.objects.create(
             performance=perf,
+            user=request.user,
             customer_name=data["customer_name"],
             phone=data.get("phone", ""),
             amount=total,
@@ -269,6 +270,9 @@ def order_pay(request, pk):
             order = TicketOrder.objects.select_for_update().select_related("performance").get(pk=pk)
         except TicketOrder.DoesNotExist:
             return Response({"detail": "订单不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.user_id != request.user.id:
+            return Response({"detail": "无权操作他人订单"}, status=status.HTTP_403_FORBIDDEN)
 
         if order.status != "pending":
             return Response({"detail": f"订单状态为 {order.get_status_display()}，无法支付"}, status=status.HTTP_409_CONFLICT)
@@ -298,6 +302,9 @@ def order_cancel(request, pk):
             order = TicketOrder.objects.select_for_update().get(pk=pk)
         except TicketOrder.DoesNotExist:
             return Response({"detail": "订单不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.user_id != request.user.id:
+            return Response({"detail": "无权操作他人订单"}, status=status.HTTP_403_FORBIDDEN)
 
         if order.status not in ("pending",):
             return Response({"detail": f"订单状态为 {order.get_status_display()}，无法取消"}, status=status.HTTP_409_CONFLICT)

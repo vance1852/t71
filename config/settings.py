@@ -35,6 +35,14 @@ DATABASES = {
     }
 }
 
+if os.getenv("DJANGO_TEST", "0") == "1":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = "zh-hans"

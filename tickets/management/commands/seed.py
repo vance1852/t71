@@ -22,9 +22,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = settings.DEFAULT_ADMIN_USERNAME
         password = settings.DEFAULT_ADMIN_PASSWORD
+        admin_user = None
         if not User.objects.filter(username=username).exists():
-            User.objects.create_superuser(username=username, password=password, first_name="平台管理员")
+            admin_user = User.objects.create_superuser(
+                username=username, password=password, first_name="平台管理员"
+            )
             self.stdout.write("已创建管理员账号")
+        else:
+            admin_user = User.objects.get(username=username)
 
         if Hall.objects.exists():
             self.stdout.write("业务数据已存在，跳过")
@@ -82,6 +87,8 @@ class Command(BaseCommand):
             {"VIP": 480, "A": 280, "B": 180},
         ]
 
+        template_map = {t.id: t for t in SeatTemplate.objects.filter(hall=hall)}
+
         for perf, prices in zip(performances, price_configs):
             price_records = [
                 PerformanceSeatPrice(performance=perf, grade=grade, price=price)
@@ -90,7 +97,7 @@ class Command(BaseCommand):
             PerformanceSeatPrice.objects.bulk_create(price_records)
 
             seat_records = []
-            for t in templates:
+            for t in template_map.values():
                 seat_records.append(
                     PerformanceSeat(
                         performance=perf,
@@ -104,38 +111,53 @@ class Command(BaseCommand):
                 )
             PerformanceSeat.objects.bulk_create(seat_records)
 
-        some_seats = list(PerformanceSeat.objects.filter(performance=perf1).order_by("zone", "row", "number")[:5])
+        some_seat_pks = list(
+            PerformanceSeat.objects.filter(performance=perf1)
+            .order_by("zone", "row", "number")
+            .values_list("id", flat=True)[:5]
+        )
+        some_seats = PerformanceSeat.objects.filter(id__in=some_seat_pks)
         order1 = TicketOrder.objects.create(
             performance=perf1,
+            user=admin_user,
             customer_name="陈静",
             phone="13900001111",
             amount=sum(s.price for s in some_seats),
             status="paid",
             locked_until=None,
         )
+        os_records = []
         for seat in some_seats:
             seat.status = "sold"
-            OrderSeat.objects.create(order=order1, performance_seat=seat)
+            os_records.append(OrderSeat(order=order1, performance_seat=seat))
         PerformanceSeat.objects.bulk_update(some_seats, ["status"])
+        OrderSeat.objects.bulk_create(os_records)
 
-        locked_seats = list(
-            PerformanceSeat.objects.filter(performance=perf1, status="available").order_by("zone", "row", "number")[:3]
+        locked_seat_pks = list(
+            PerformanceSeat.objects.filter(performance=perf1, status="available")
+            .order_by("zone", "row", "number")
+            .values_list("id", flat=True)[:3]
         )
+        locked_seats = PerformanceSeat.objects.filter(id__in=locked_seat_pks)
         order2 = TicketOrder.objects.create(
             performance=perf1,
+            user=admin_user,
             customer_name="刘洋",
             phone="13900002222",
             amount=sum(s.price for s in locked_seats),
             status="pending",
             locked_until=now + timedelta(minutes=10),
         )
+        os_records2 = []
         for seat in locked_seats:
             seat.status = "locked"
-            OrderSeat.objects.create(order=order2, performance_seat=seat)
+            os_records2.append(OrderSeat(order=order2, performance_seat=seat))
         PerformanceSeat.objects.bulk_update(locked_seats, ["status"])
+        OrderSeat.objects.bulk_create(os_records2)
 
         order3 = TicketOrder.objects.create(
             performance=perf2,
+            user=admin_user,
             customer_name="孙琳",
             phone="13900003333",
             amount=880,
